@@ -1,0 +1,5 @@
+To install shadcn components:
+
+npx shadcn-vue@latest add <components-name>
+
+visit https://www.shadcn-vue.com/docs/introduction
