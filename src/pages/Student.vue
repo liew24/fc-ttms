@@ -1,4 +1,5 @@
 <template>
+    <!-- Lee Hom -->
     <div>
         Lecturer page
     </div>
