@@ -9,21 +9,22 @@
 
     <!-- Chart -->
     <div :class="{ 'opacity-30 pointer-events-none': isLoading }" class="w-full h-full">
-      <Bar v-if="chartData" :data="chartData" :options="chartOptions" />
+      <Doughnut v-if="chartData" :data="chartData" :options="chartOptions" />
     </div>
 
   </div>
 
 </template>
 
+
 <script setup>
 import { ref, onMounted } from "vue";
-import { Bar } from "vue-chartjs";
-import { Chart, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from "chart.js";
+import { Doughnut } from "vue-chartjs";
+import { Chart, ArcElement, Tooltip, Legend } from "chart.js";
 import getStudents from "@/api/api";
 import { Loader2 } from "lucide-vue-next";
 
-Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+Chart.register(ArcElement, Tooltip, Legend);
 
 // ----------------------------------------------------
 // Reactive variables
@@ -34,9 +35,6 @@ const isLoading = ref(true);
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  scales: {
-    y: { beginAtZero: true, ticks: { stepSize: 1 } }
-  },
   plugins: {
     legend: { position: "top" },
     tooltip: { enabled: true }
@@ -48,8 +46,9 @@ const sessionId = localStorage.getItem("session_id_utm_ttms");
 // Load chart data
 onMounted(async () => {
   try {
-    const students = await getStudents("pelajar", sessionId, "2024/2025", 1, 0);
+    const students = await getStudents("pensyarah", sessionId, "2024/2025", 1, 0);
 
+    // Count by number of subjects
     const countBySubjects = {};
 
     students.forEach(s => {
@@ -65,13 +64,15 @@ onMounted(async () => {
       labels,
       datasets: [
         {
-          label: "Amount of students",
+          label: "Amount of subjects taken by lecturers",
           data: values,
-          backgroundColor:[
-              "rgba(75, 192, 192, 0.7)",
-              "rgba(255, 99, 132, 0.7)",
-              "rgba(255, 205, 86, 0.7)",
-              "rgba(54, 162, 235, 0.7)",
+          backgroundColor: [
+            "rgba(255, 99, 132, 0.7)",
+            "rgba(54, 162, 235, 0.7)",
+            "rgba(255, 206, 86, 0.7)",
+            "rgba(75, 192, 192, 0.7)",
+            "rgba(153, 102, 255, 0.7)",
+            "rgba(255, 159, 64, 0.7)"
           ]
         }
       ]
@@ -83,3 +84,8 @@ onMounted(async () => {
   }
 });
 </script>
+
+
+<style lang="scss" scoped>
+
+</style>

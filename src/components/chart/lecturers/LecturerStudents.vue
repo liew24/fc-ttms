@@ -48,8 +48,9 @@ const sessionId = localStorage.getItem("session_id_utm_ttms");
 // Load chart data
 onMounted(async () => {
   try {
-    const students = await getStudents("pelajar", sessionId, "2024/2025", 1, 0);
+    const students = await getStudents("pensyarah", sessionId, "2024/2025", 1, 0);
 
+    // Count by number of subjects
     const countBySubjects = {};
 
     students.forEach(s => {
@@ -65,14 +66,18 @@ onMounted(async () => {
       labels,
       datasets: [
         {
-          label: "Amount of students",
+          label: "Amount of students taken by lecturers",
           data: values,
-          backgroundColor:[
-              "rgba(75, 192, 192, 0.7)",
-              "rgba(255, 99, 132, 0.7)",
-              "rgba(255, 205, 86, 0.7)",
-              "rgba(54, 162, 235, 0.7)",
-          ]
+          backgroundColor: [
+            "rgba(255, 99, 132, 0.7)",
+            "rgba(54, 162, 235, 0.7)",
+            "rgba(255, 206, 86, 0.7)",
+            "rgba(75, 192, 192, 0.7)",
+            "rgba(153, 102, 255, 0.7)",
+            "rgba(255, 159, 64, 0.7)"
+          ],
+          borderColor: "rgba(54, 162, 235, 1)",
+          borderWidth: 1
         }
       ]
     };
@@ -83,3 +88,7 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style lang="scss" scoped>
+
+</style>

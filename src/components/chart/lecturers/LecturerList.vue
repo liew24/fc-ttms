@@ -12,12 +12,13 @@ import { computed, onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
 
 const sessionId = localStorage.getItem("session_id_utm_ttms");
-const students = ref([]);
+const lecturers = ref([]);
 const isLoading = ref(true);
 
 // Search / Filter
 const searchQuery = ref("");
-const selectedCourse = ref("");
+const selectedNoSubject = ref("");
+const selectedNoSection = ref('')
 const selectedYear = ref("");
 
 // Pagination
@@ -27,33 +28,47 @@ const pageSize = 10;
 // Clear filter
 const clearFilter = () => {
   searchQuery.value = "";
-  selectedCourse.value = "";
+  selectedNoSubject.value = "";
+  selectedNoSection.value = "";
   selectedYear.value = "";
   currentPage.value = 1;
 };
 
-// Unique course list
-const courses = computed(() =>
-  [...new Set(students.value.map((s) => s.kod_kursus))]
+    //    "bil_pelajar":89,
+    //   "bil_seksyen":3,
+    //   "no_pekerja":30744,
+    //   "nama":"ADILA FIRDAUS BINTI ARBAIN",
+    //   "bil_subjek":2 
+
+// Ascending number of subjects
+const subjects = computed(() =>
+  [...new Set(lecturers.value.map((s) => s.bil_subjek))].sort((a,b)=>a-b)
+);
+
+const sections = computed(() =>
+  [...new Set(lecturers.value.map((s) => s.bil_seksyen))].sort((a,b)=>a-b)
 );
 
 // -----------------------------
 // FILTERED STUDENTS (computed)
 // -----------------------------
-const filteredStudents = computed(() => {
-  return students.value.filter((s) => {
+const filteredLecturers = computed(() => {
+  return lecturers.value.filter((s) => {
     const matchesSearch =
       s.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      s.no_matrik.toLowerCase().includes(searchQuery.value.toLowerCase());
+      s.no_pekerja.toLowerCase().includes(searchQuery.value.toLowerCase());
 
-    const matchesCourse =
-      selectedCourse.value === "" || s.kod_kursus === selectedCourse.value;
+    const matchesNoSubjects =
+      selectedNoSubject.value === "" || s.bil_subjek === selectedNoSubject.value;
+
+    const matchesNoSections =
+      selectedNoSection.value === "" || s.bil_seksyen === selectedNoSection.value;
 
     const matchesYear =
       selectedYear.value === "" ||
       String(s.tahun_kursus) === selectedYear.value;
 
-    return matchesSearch && matchesCourse && matchesYear;
+    return matchesSearch && matchesNoSubjects && matchesNoSections;
   });
 });
 
@@ -61,15 +76,15 @@ const filteredStudents = computed(() => {
 // TOTAL PAGES (computed)
 // -----------------------------
 const totalPages = computed(() => {
-  return Math.ceil(filteredStudents.value.length / pageSize);
+  return Math.ceil(filteredLecturers.value.length / pageSize);
 });
 
 // -----------------------------
 // PAGINATED STUDENTS (computed)
 // -----------------------------
-const paginatedStudents = computed(() => {
+const paginatedLecturers = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
-  return filteredStudents.value.slice(start, start + pageSize);
+  return filteredLecturers.value.slice(start, start + pageSize);
 });
 
 // -----------------------------
@@ -83,18 +98,21 @@ const prevPage = () => {
   if (currentPage.value > 1) currentPage.value--;
 };
 
+// -----------------------------
+// FETCH STUDENTS
+// -----------------------------
 onMounted(async () => {
   try {
-    students.value = await getStudents(
-      "pelajar",
+    lecturers.value = await getStudents(
+      "pensyarah",
       sessionId,
       "2024/2025",
       0,
     );
   } catch (error) {
-    console.log("Error fetching students list: ", error);
-    toast.error("Failed to load students list.", {
-      id: "students-load-failed",
+    console.log("Error fetching lecturers list: ", error);
+    toast.error("Failed to load lecturers list.", {
+      id: "lecturers-load-failed",
     });
   } finally {
     isLoading.value = false;
@@ -116,32 +134,32 @@ onMounted(async () => {
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Search by name or matric no..."
+        placeholder="Search by name or employee ID..."
         class="border px-4 py-2 rounded w-full md:w-1/3"
       />
 
-      <!-- Course -->
+      <!-- Number of subjects -->
       <select
-        v-model="selectedCourse"
+        v-model="selectedNoSubject"
         class="border px-4 py-2 rounded w-full md:w-auto"
       >
-        <option value="">All Courses</option>
-        <option v-for="course in courses" :key="course" :value="course">
-          {{ course }}
+        <option value="">Subject</option>
+        <option v-for="subject in subjects" :key="subject" :value="subject">
+          {{ subject }}
+        </option>
+      </select>
+      
+      <!-- Number of sections -->
+      <select
+        v-model="selectedNoSection"
+        class="border px-4 py-2 rounded w-full md:w-auto"
+      >
+        <option value="">Section</option>
+        <option v-for="section in sections" :key="section" :value="section">
+          {{ section }}
         </option>
       </select>
 
-      <!-- Year -->
-      <select
-        v-model="selectedYear"
-        class="border px-4 py-2 rounded w-full md:w-auto"
-      >
-        <option value="">All Years</option>
-        <option value="1">Year 1</option>
-        <option value="2">Year 2</option>
-        <option value="3">Year 3</option>
-        <option value="4">Year 4</option>
-      </select>
 
       <Button class="w-full md:w-auto" @click="clearFilter">
         Clear Filter
@@ -152,35 +170,35 @@ onMounted(async () => {
     <div class="hidden md:block min-w-[800px] w-full">
 
       <div class="text-lg font-semibold text-gray-700 py-4 bg-gray-50 text-center">
-        A list of students in Faculty Computing
+        A list of lecturers in Faculty Computing
       </div>
 
       <div class="grid grid-cols-5 bg-gray-100 border-b font-semibold">
-        <div class="px-6 py-4">No Matrik</div>
+        <div class="px-6 py-4">No Pekerja</div>
         <div class="px-6 py-4">Name</div>
-        <div class="px-6 py-4">Course</div>
-        <div class="px-6 py-4 text-center">Subject</div>
-        <div class="px-6 py-4 text-center">Year</div>
+        <div class="px-6 py-4">Number of subjects</div>
+        <div class="px-6 py-4 text-center">Number of students</div>
+        <div class="px-6 py-4 text-center">Number of sections</div>
       </div>
 
       <div class="h-100 overflow-y-auto">
           <div
-            v-for="(student, index) in paginatedStudents"
-            :key="student.no_matrik"
+            v-for="(lecturer, index) in paginatedLecturers"
+            :key="lecturer.no_matrik"
             :class="[
               'grid grid-cols-5 border-b transition-colors',
               index % 2 === 0 ? 'bg-white' : 'bg-gray-50',
               'hover:bg-blue-50'
             ]"
           >
-            <div class="px-6 py-4 flex items-center">{{ student.no_matrik }}</div>
-            <div class="px-6 py-4 flex items-center">{{ student.nama }}</div>
-            <div class="px-6 py-4 flex items-center">{{ student.kod_kursus }}</div>
+            <div class="px-6 py-4 flex items-center">{{ lecturer.no_pekerja }}</div>
+            <div class="px-6 py-4 flex items-center">{{ lecturer.nama }}</div>
+            <div class="px-6 py-4 flex items-center">{{ lecturer.bil_subjek }}</div>
             <div class="px-6 py-4 text-center flex items-center justify-center">
-              {{ student.bil_subjek }}
+              {{ lecturer.bil_pelajar }}
             </div>
             <div class="px-6 py-4 text-center flex items-center justify-center">
-              Tahun {{ student.tahun_kursus }}
+            {{ lecturer.bil_seksyen }}
             </div>
           </div>
       </div>
@@ -190,15 +208,15 @@ onMounted(async () => {
     <div class="md:hidden flex flex-col gap-3">
         <div class="overflow-y-auto h-100">   
             <div
-            v-for="student in paginatedStudents"
-            :key="student.no_matrik"
+            v-for="lecturer in paginatedLecturers"
+            :key="lecturer.no_matrik"
             class="bg-white p-4 rounded-lg shadow border"
             >
-            <div class="font-semibold text-lg">{{ student.nama }}</div>
-            <div class="text-sm text-gray-600">Matric: {{ student.no_matrik }}</div>
-            <div class="text-sm text-gray-600">Course: {{ student.kod_kursus }}</div>
-            <div class="text-sm text-gray-600">Subjects: {{ student.bil_subjek }}</div>
-            <div class="text-sm text-gray-600">Year: {{ student.tahun_kursus }}</div>
+            <div class="font-semibold text-lg">{{ lecturer.nama }}</div>
+            <div class="text-sm text-gray-600">Empoyee ID: {{ lecturer.no_pekerja }}</div>
+            <div class="text-sm text-gray-600">Number of subjects : {{ lecturer.bil_subjek }}</div>
+            <div class="text-sm text-gray-600">Number of students: {{ lecturer.bil_pelajar }}</div>
+            <div class="text-sm text-gray-600">Number of sections: {{ lecturer.bil_seksyen }}</div>
             </div>
         </div>
     </div>

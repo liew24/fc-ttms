@@ -5,3 +5,12 @@ npx shadcn-vue@latest add <components-name>
 Eg: npx shadcn-vue@latest add sonner
 
 visit https://www.shadcn-vue.com/docs/introduction
+
+
+TO DO LIST:
+
+LH:
+
+Search students based on "sesi" features: "2020/2021" , "2021/2022"
+Analysis chart should also integrated with "sesi options": "2021/2022"
+Fix bugs in "Lecturer" search bar 

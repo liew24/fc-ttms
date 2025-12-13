@@ -1,16 +1,16 @@
 <script setup>
-  import { Button } from './components/ui/button';
-  import Login from './pages/Login.vue';
+import { Button } from './components/ui/button';
+import Login from './pages/Login.vue';
 import { useUserStore } from './stores/user';
-  import "./style.css"
-  import Navbar from './components/navbar.vue';
-  import Footer from './components/Footer.vue';
+import "./style.css"
+import Footer from './components/Footer.vue';
 import { onMounted } from 'vue';
+import Navbar from './components/Navbar.vue';
 
-  // const isAuth = localStorage.getItem("session_id_utm_ttms")
-  const user = useUserStore(); 
+// const isAuth = localStorage.getItem("session_id_utm_ttms")
+const user = useUserStore();
 
-  onMounted(() => {
+onMounted(() => {
   const session = localStorage.getItem("session_id_utm_ttms");
 
   if (session) {
@@ -21,9 +21,10 @@ import { onMounted } from 'vue';
 
 <template>
   <div class="min-h-screen flex flex-col">
-    <Navbar v-if="user.isLoggedIn"/>
+    <Navbar  />
     <router-view />
-    <Footer/>
+    <!-- TODO: Footer setup -->
+    <Footer />
   </div>
 </template>
 
