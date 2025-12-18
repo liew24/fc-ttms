@@ -83,7 +83,7 @@ const formatTime = (apiMasa) => {
 const fetchTimetable = async () => {
     loading.value = true;
     error.value = "";
-    console.log("Fetching timetable for matric no:", userStore.matric_no);
+    // console.log("Fetching timetable for matric no:", userStore.sessionToken);
     if (userStore.sessionToken === "") {
         error.value = "Session lost. Please Logout and Login again.";
         loading.value = false;
@@ -97,28 +97,30 @@ const fetchTimetable = async () => {
         let allSubjects = [];
         
         // ATTEMPT A: Try Student Endpoint
+        // console.log(first)
         try {
             const studentRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
-                params: { entity: 'pelajar_subjek', no_matrik: userStore.matric_no }
+                params: { entity: 'pelajar_subjek', no_matrik: localStorage.getItem('matric_no')  }
             });
+            console.log("studentRes.data:", studentRes.data, "matric_no:", userStore.matric_no);
             if (Array.isArray(studentRes.data) && studentRes.data.length > 0) {
                 allSubjects = studentRes.data;
             }
         } catch (e) {
-            // Ignore
+            console.log(e.message);
         }
-
+        // console.log("allSubjects:", allSubjects);
         // ATTEMPT B: If empty, Try Lecturer Endpoint
         if (allSubjects.length === 0) {
             try {
                 const lecturerRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
-                    params: { entity: 'pensyarah_subjek', no_pekerja: userStore.matric_no }
+                    params: { entity: 'pensyarah_subjek', no_pekerja: localStorage.getItem('matric_no') }
                 });
                 if (Array.isArray(lecturerRes.data) && lecturerRes.data.length > 0) {
                     allSubjects = lecturerRes.data;
                 }
             } catch (e) {
-                // Ignore
+                console.log(e.message);
             }
         }
 
@@ -144,7 +146,7 @@ const fetchTimetable = async () => {
         const detailedRequests = currentSubjects.map(async (subject) => {
             
             // A. Schedule
-            const schedulePromise = axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
+            const schedulePromise = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
                 params: {
                     entity: 'jadual_subjek',
                     sesi: currentSesi.value,
@@ -155,7 +157,7 @@ const fetchTimetable = async () => {
             });
 
             // B. Lecturer Info
-            const lecturerPromise = axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
+            const lecturerPromise = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
                 params: {
                     entity: 'subjek_pensyarah',
                     sesi: currentSesi.value,
@@ -208,7 +210,7 @@ const fetchTimetable = async () => {
 
     } catch (err) {
         console.error(err);
-        error.value = "Failed to fetch data. Ensure CORS is ON.";
+        error.value = "Error loadging timetable. Please try again later.";
     } finally {
         loading.value = false;
     }
@@ -248,7 +250,7 @@ const clearFilter = () => { selectedDay.value = null; isFilterOpen.value = false
             <div class="mb-6">
                  <h1 class="text-2xl font-bold text-primary">Timetable</h1>
                  <p class="text-gray-500 text-sm" v-if="timetableData.length > 0">
-                    Session {{ currentSesi || '...' }} | Semester {{ currentSem || '...' }}
+                    Session {{ currentSesi || '...' }} |     {{ currentSem || '...' }}
                  </p>
             </div>
 

@@ -2,17 +2,18 @@ import { defineStore } from 'pinia'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
-    matric_no: "",
+    matric_no: localStorage.getItem('matric_no') || "",
     name: "",
     description: "",
     role: "",
-    isLoggedIn: false, //! change after mock API
+    isLoggedIn: false, 
     sessionToken: localStorage.getItem('session_id_utm_ttms'),
   }),
   actions: {
     setToken(){
       console.log("token have been save ")
         this.sessionToken = localStorage.getItem('session_id_utm_ttms')
+        this.matric_no =  localStorage.getItem('matric_no')
     },
 
     login({name, matric_no, description, role, isLoggedIn, sessionToken}) {

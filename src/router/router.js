@@ -21,6 +21,8 @@ const router = createRouter({
   routes,
 })
 
+//! restirct access to roles (admin)
+
 router.beforeEach((to) => {
   const user = useUserStore()
   const session_id = localStorage.getItem("session_id_utm_ttms")

@@ -49,9 +49,12 @@ const login = async () => {
 
       if (data && data.session_id) {
         user.login({ matric_no: data.login_name, description: data.description, name: data.full_name, isLoggedIn: true, role: role.value, sessionToken: data.session_id })
-  
-        // store session_id in localStorage
         localStorage.setItem("session_id_utm_ttms",data.session_id)
+        // console.log("saving matric no to localStorage: ", data.login_name)
+        localStorage.setItem('matric_no', data.login_name) 
+        user.setToken();
+        // store session_id in localStorage
+        
         // localStorage.setItem("user_matric_no", data.login_name) // <--- NEW
         // localStorage.setItem("user_full_name", data.full_name)  // <--- NEW
         console.log("user session id: ", data.session_id)
@@ -70,10 +73,10 @@ const login = async () => {
       const adminData = adminResponse.data[0]
         if (adminData && adminData.session_id) {
           user.login({ matric_no: "admin", description: "admin", name: "Admin", isLoggedIn: true, role: role.value, sessionToken: adminData.session_id })
-          user.setToken();
-          // store session_id in localStorage
           localStorage.setItem("session_id_utm_ttms",adminData.session_id)
           localStorage.setItem("is_admin","true")
+          user.setToken();
+          // store session_id in localStorage
           console.log("admin session id: ", adminData.session_id)
         } else {
             toast.error("Invalid credentials. Please try again.", { id: "login-failed" })

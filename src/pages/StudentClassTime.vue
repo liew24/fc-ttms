@@ -8,6 +8,8 @@ import { Loader2 } from 'lucide-vue-next';
 import { useUserStore } from '@/stores/user';
 import getStudents from '@/api/api';
 
+//! class number analysis by time slot and day of week
+
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
 // --- Constants for Mapping ---

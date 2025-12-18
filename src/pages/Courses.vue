@@ -93,7 +93,7 @@ const fetchCourses = async () => {
     try {
         // STEP A: Detect Session from History
         const historyRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
-            params: { entity: 'pelajar_subjek', no_matrik: userStore.matric_no }
+            params: { entity: 'pelajar_subjek', no_matrik: localStorage.getItem('matric_no') }
         });
         
         const myHistory = historyRes.data;

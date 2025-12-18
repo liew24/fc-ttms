@@ -9,7 +9,7 @@ import TableHeader from '@/components/ui/table/TableHeader.vue';
 import TableRow from '@/components/ui/table/TableRow.vue';
 import { useUserStore } from '@/stores/user';
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 
 const sessionId = localStorage.getItem("session_id_utm_ttms");
@@ -52,42 +52,43 @@ const sections = computed(() =>
   [...new Set(lecturers.value.map((s) => s.bil_seksyen))].sort((a,b)=>a-b)
 );
 
-// -----------------------------
-// FILTERED STUDENTS (computed)
-// -----------------------------
-const filteredLecturers = computed(() => {
-  return lecturers.value.filter((s) => {
-    const matchesSearch =
-      s.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      s.no_pekerja.toLowerCase().includes(searchQuery.value.toLowerCase());
+watch([searchQuery, selectedNoSubject, selectedNoSection], () => {
+  currentPage.value = 1;
+});
 
+const filteredLecturers = computed(() => {
+  // If no data yet, return empty array
+  if (!lecturers.value) return [];
+
+  const query = searchQuery.value.toLowerCase().trim();
+
+  return lecturers.value.filter((s) => {
+    // Search by Name OR ID
+    const name = s.nama ? s.nama.toLowerCase() : "";
+    const id = s.no_pekerja ? String(s.no_pekerja).toLowerCase() : "";
+    
+    const matchesSearch = query === "" || name.includes(query) || id.includes(query);
+
+    // Filter by Dropdowns
     const matchesNoSubjects =
       selectedNoSubject.value === "" || s.bil_subjek === selectedNoSubject.value;
 
     const matchesNoSections =
       selectedNoSection.value === "" || s.bil_seksyen === selectedNoSection.value;
 
-    const matchesYear =
-      selectedYear.value === "" ||
-      String(s.tahun_kursus) === selectedYear.value;
-
     return matchesSearch && matchesNoSubjects && matchesNoSections;
   });
 });
 
-// -----------------------------
-// TOTAL PAGES (computed)
-// -----------------------------
 const totalPages = computed(() => {
-  return Math.ceil(filteredLecturers.value.length / pageSize);
+  const count = Math.ceil(filteredLecturers.value.length / pageSize);
+  return count > 0 ? count : 1; // Prevent "Page 1 of 0"
 });
 
-// -----------------------------
-// PAGINATED STUDENTS (computed)
-// -----------------------------
 const paginatedLecturers = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
-  return filteredLecturers.value.slice(start, start + pageSize);
+  const end = start + pageSize;
+  return filteredLecturers.value.slice(start, end);
 });
 
 // -----------------------------

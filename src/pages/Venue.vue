@@ -1,23 +1,33 @@
 <script setup>
 import { ref, onMounted, computed, watch } from "vue";
-import { 
-    Search, Eye, ArrowLeft, Loader2, MapPin, ChevronLeft, ChevronRight 
+import {
+    Search, Eye, ArrowLeft, Loader2, MapPin, ChevronLeft, ChevronRight, X, Calendar, Clock
 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import axios from "axios"; 
+import axios from "axios";
 import { useUserStore } from "@/stores/user";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import Label from "@/components/ui/label/Label.vue";
+import CardHeader from "@/components/ui/card/CardHeader.vue";
+import CardTitle from "@/components/ui/card/CardTitle.vue";
 
 // --- STATE MANAGEMENT ---
 const userStore = useUserStore();
-const currentView = ref(1); 
+const currentView = ref(1);
 const loading = ref(false);
 const error = ref("");
 const searchQuery = ref("");
 
 // SESSION STATE 
-const currentSesi = ref(""); 
+const currentSesi = ref("");
 const currentSem = ref("");
 
 // PAGINATION
@@ -25,10 +35,17 @@ const currentPage = ref(1);
 const itemsPerPage = 10;
 
 // Data Containers
-const venueList = ref([]);       
-const selectedVenue = ref(null); 
-const venueSchedule = ref([]);   
-const selectedDay = ref(2);      
+const venueList = ref([]);
+const selectedVenue = ref(null);
+const venueSchedule = ref([]);
+const selectedDay = ref(2);
+
+// --- AVAILABILITY MODAL STATE ---
+const showAvailabilityModal = ref(false);
+const checkDay = ref("");
+const checkTime = ref("");
+const availableVenues = ref([]);
+const isChecking = ref(false);
 
 // --- COMPUTED PROPERTIES ---
 
@@ -36,8 +53,8 @@ const selectedDay = ref(2);
 const filteredVenues = computed(() => {
     if (!searchQuery.value) return venueList.value;
     const query = searchQuery.value.toLowerCase();
-    return venueList.value.filter(v => 
-        v.nama_ruang.toLowerCase().includes(query) || 
+    return venueList.value.filter(v =>
+        v.nama_ruang.toLowerCase().includes(query) ||
         v.kod_ruang.toLowerCase().includes(query)
     );
 });
@@ -53,18 +70,18 @@ const paginatedVenues = computed(() => {
 // 2. Statistics for Level 2 (STRICTER COUNTING)
 const venueStats = computed(() => {
     const schedule = venueSchedule.value || [];
-    
+
     // Filter out "ghost" slots - ensure they have a Day and Time
     const validSlots = schedule.filter(s => s.hari && s.masa);
-    
+
     const totalHours = validSlots.length;
 
     const uniqueSubjects = new Set(
         validSlots
-        .map(s => s.subjek ? s.subjek.kod_subjek : null)
-        .filter(code => code && code !== "")
+            .map(s => s.subjek ? s.subjek.kod_subjek : null)
+            .filter(code => code && code !== "")
     );
-    
+
     return {
         hours: totalHours,
         subjects: uniqueSubjects.size
@@ -88,7 +105,7 @@ const formatDay = (day) => {
 }
 
 const formatTime = (apiMasa) => {
-    const startHour = parseInt(apiMasa) + 6; 
+    const startHour = parseInt(apiMasa) + 6;
     const pad = (n) => n < 10 ? '0' + n : n;
     return `${pad(startHour)}00 - ${pad(startHour)}50`;
 }
@@ -97,7 +114,7 @@ const formatTime = (apiMasa) => {
 
 const initPage = async () => {
     loading.value = true;
-    console.log("matric no in store:", userStore.matric_no)
+
     if (userStore.matric_no) {
         try {
             const historyRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
@@ -121,7 +138,7 @@ const fetchVenues = async () => {
         const response = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
             params: { entity: 'ruang' }
         });
-        
+
         venueList.value = response.data || [];
         venueList.value.sort((a, b) => a.nama_ruang.localeCompare(b.nama_ruang));
 
@@ -133,19 +150,19 @@ const fetchVenues = async () => {
 const openVenueDetail = async (venue) => {
     loading.value = true;
     selectedVenue.value = venue;
-    venueSchedule.value = []; 
+    venueSchedule.value = [];
 
     try {
         const response = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
             params: {
                 entity: 'jadual_ruang',
-                sesi: currentSesi.value,    
-                semester: currentSem.value, 
+                sesi: currentSesi.value,
+                semester: currentSem.value,
                 kod_ruang: venue.kod_ruang,
-                limit: 2000 
+                limit: 2000
             }
         });
-
+        
         venueSchedule.value = response.data || [];
         currentView.value = 2;
     } catch (err) {
@@ -156,14 +173,14 @@ const openVenueDetail = async (venue) => {
 };
 
 const openTimetable = () => {
-    selectedDay.value = 2; 
+    selectedDay.value = 2;
     currentView.value = 3;
 }
 
 const changeDay = (direction) => {
     let newDay = selectedDay.value + direction;
-    if (newDay > 6) newDay = 1; 
-    if (newDay < 1) newDay = 6; 
+    if (newDay > 6) newDay = 1;
+    if (newDay < 1) newDay = 6;
     selectedDay.value = newDay;
 }
 
@@ -175,6 +192,57 @@ const goBack = () => {
 const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++; }
 const prevPage = () => { if (currentPage.value > 1) currentPage.value--; }
 
+const checkAvailability = async () => {
+
+    if (!checkDay.value || !checkTime.value) return;
+
+    isChecking.value = true;
+    availableVenues.value = []; 
+
+    try {
+        const hour = parseInt(checkTime.value.split(':')[0]);
+        const targetMasa = hour - 6;
+
+        const venuesToCheck = venueList.value;
+
+        const checks = venuesToCheck.map(async (venue) => {
+            try {
+                const response = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
+                    params: {
+                        entity: 'jadual_ruang',
+                        sesi: currentSesi.value,
+                        semester: currentSem.value,
+                        kod_ruang: venue.kod_ruang
+                    }
+                });
+
+                const schedule = response.data || [];
+
+                const isOccupied = schedule.some(slot =>
+                    parseInt(slot.hari) === parseInt(checkDay.value) &&
+                    parseInt(slot.masa) === targetMasa
+                );
+
+                if (!isOccupied) {
+                    return venue;
+                }
+                return null;
+
+            } catch (err) {
+                return null; 
+            }
+        });
+
+        const results = await Promise.all(checks);
+        availableVenues.value = results.filter(v => v !== null);
+
+    } catch (err) {
+        console.error("Availability check failed:", err);
+    } finally {
+        isChecking.value = false;
+    }
+}
+
 onMounted(() => {
     initPage();
 });
@@ -182,37 +250,112 @@ onMounted(() => {
 
 <template>
     <div class="p-4 md:p-6 w-full min-h-screen">
-        
+        <div v-if="showAvailabilityModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <Card class="w-full max-w-lg bg-white shadow-xl relative animate-in fade-in zoom-in duration-200">
+                <button @click="showAvailabilityModal = false"
+                    class="absolute right-4 top-4 text-gray-400 hover:text-red-500">
+                    <X class="w-5 h-5" />
+                </button>
+
+                <CardHeader>
+                    <CardTitle>Check Room Availability</CardTitle>
+                </CardHeader>
+
+                <CardContent class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <Label>Day</Label>
+                            <Select v-model="checkDay">
+                                <SelectTrigger class="w-full pl-8 relative">
+                                    <Calendar class="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
+                                    <SelectValue placeholder="Select Day" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="1">Sunday</SelectItem>
+                                    <SelectItem value="2">Monday</SelectItem>
+                                    <SelectItem value="3">Tuesday</SelectItem>
+                                    <SelectItem value="4">Wednesday</SelectItem>
+                                    <SelectItem value="5">Thursday</SelectItem>
+                                    <SelectItem value="6">Friday</SelectItem>
+                                    <SelectItem value="7">Saturday</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label>Time</Label>
+                            <div class="relative">
+                                <Clock class="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
+                                <Input v-model="checkTime" type="time" class="pl-8" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <Button @click="checkAvailability" class="w-full bg-primary"
+                        :disabled="!checkDay || !checkTime || isChecking">
+                        <Loader2 v-if="isChecking" class="w-4 h-4 mr-2 animate-spin" />
+                        {{ isChecking ? 'Checking...' : 'Find Available Rooms' }}
+                    </Button>
+
+                    <div v-if="availableVenues.length > 0 && !isChecking"
+                        class="mt-4 max-h-[200px] overflow-y-auto space-y-2 border-t pt-2">
+                        <p class="text-xs text-gray-500 font-bold mb-2">Available Rooms:</p>
+                        <div v-for="(v, i) in availableVenues" :key="i"
+                            class="flex justify-between items-center bg-gray-50 p-3 rounded border">
+                            <div>
+                                <p class="text-sm font-bold">{{ v.nama_ruang }}</p>
+                                <p class="text-xs text-gray-500 font-mono">
+                                    {{ v.kod_ruang }} <span class="text-gray-300 mx-1">|</span> {{ v.jenis }}
+                                    <span class="text-gray-300 mx-1">|</span> Cap: {{ v.kapasiti }}
+                                </p>
+                            </div>
+                            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Available</span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+
         <div v-if="loading" class="flex justify-center h-64 items-center">
-            <Loader2 class="w-8 h-8 animate-spin text-primary"/>
+            <Loader2 class="w-8 h-8 animate-spin text-primary" />
         </div>
         <div v-else-if="error" class="bg-red-100 text-red-600 p-4 rounded mb-4">{{ error }}</div>
 
         <div v-else-if="currentView === 1">
-            <div class="mb-6">
-                 <h1 class="text-2xl font-bold text-primary">Space</h1>
-                 <p class="text-gray-500 text-sm">Faculty Rooms & Labs ({{ currentSesi }})</p>
+            <div class="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-primary">Space</h1>
+                    <p class="text-gray-500 text-sm">Faculty Rooms & Labs ({{ currentSesi }})</p>
+                </div>
+
+                <Button @click="showAvailabilityModal = true"
+                    class="bg-primary text-white shadow hover:bg-red-900 transition-all">
+                    Check Availability
+                </Button>
             </div>
 
             <div class="relative w-full mb-6">
                 <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input v-model="searchQuery" placeholder="Search Space Name or Code" class="pl-10 bg-white rounded-full shadow-sm" />
+                <Input v-model="searchQuery" placeholder="Search Space Name or Code"
+                    class="pl-10 bg-white rounded-full shadow-sm" />
             </div>
 
-            <div class="flex items-center justify-between text-gray-500 text-xs uppercase font-semibold border-b pb-2 mb-2 px-2">
+            <div
+                class="flex items-center justify-between text-gray-500 text-xs uppercase font-semibold border-b pb-2 mb-2 px-2">
                 <span>Space Name</span>
                 <span class="pr-8">Capacity</span>
             </div>
 
             <div class="space-y-1 min-h-[400px]">
-                <div v-for="(venue, i) in paginatedVenues" :key="i" 
-                     class="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 px-2 transition-colors">
+                <div v-for="(venue, i) in paginatedVenues" :key="i"
+                    class="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 px-2 transition-colors">
                     <div class="w-2/3 pr-4">
                         <p class="text-sm font-bold text-gray-800 uppercase">{{ venue.nama_ruang }}</p>
                         <p class="text-xs text-gray-400 font-mono mt-1">{{ venue.kod_ruang }}</p>
                     </div>
                     <div class="w-1/3 flex items-center justify-between">
-                        <span class="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">{{ venue.kapasiti }}</span>
+                        <span class="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">{{ venue.kapasiti
+                            }}</span>
                         <button @click="openVenueDetail(venue)" class="text-gray-400 hover:text-primary">
                             <Eye class="w-5 h-5" />
                         </button>
@@ -220,13 +363,17 @@ onMounted(() => {
                 </div>
             </div>
 
-            <div v-if="filteredVenues.length > itemsPerPage" class="flex justify-between items-center mt-6 border-t pt-4">
-                <Button variant="outline" size="sm" @click="prevPage" :disabled="currentPage === 1" class="flex gap-1 items-center">
-                    <ChevronLeft class="w-4 h-4"/> Prev
+            <div v-if="filteredVenues.length > itemsPerPage"
+                class="flex justify-between items-center mt-6 border-t pt-4">
+                <Button variant="outline" size="sm" @click="prevPage" :disabled="currentPage === 1"
+                    class="flex gap-1 items-center">
+                    <ChevronLeft class="w-4 h-4" /> Prev
                 </Button>
                 <span class="text-xs text-gray-500 font-medium">Page {{ currentPage }} of {{ totalPages }}</span>
-                <Button variant="outline" size="sm" @click="nextPage" :disabled="currentPage === totalPages" class="flex gap-1 items-center">
-                    Next <ChevronRight class="w-4 h-4"/>
+                <Button variant="outline" size="sm" @click="nextPage" :disabled="currentPage === totalPages"
+                    class="flex gap-1 items-center">
+                    Next
+                    <ChevronRight class="w-4 h-4" />
                 </Button>
             </div>
         </div>
@@ -252,11 +399,13 @@ onMounted(() => {
                         </div>
                         <div>
                             <p class="text-xs text-gray-400 mb-1">Faculty/Department</p>
-                            <p class="text-sm font-bold text-gray-800">{{ selectedVenue.kod_fakulti || '-' }}/{{ selectedVenue.kod_jabatan || '-' }}</p>
+                            <p class="text-sm font-bold text-gray-800">{{ selectedVenue.kod_fakulti || '-' }}/{{
+                                selectedVenue.kod_jabatan || '-' }}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-400 mb-1">Type</p>
-                            <p class="text-sm font-bold text-gray-800 uppercase">{{ selectedVenue.jenis || 'General' }}</p>
+                            <p class="text-sm font-bold text-gray-800 uppercase">{{ selectedVenue.jenis || 'General' }}
+                            </p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-400 mb-1">Capacity</p>
@@ -299,9 +448,9 @@ onMounted(() => {
             </Card>
 
             <div class="space-y-2">
-                <div v-for="(slot, i) in dailySchedule" :key="i" 
-                     class="flex bg-white border-l-4 border-primary shadow-sm p-4 rounded-r-md">
-                    
+                <div v-for="(slot, i) in dailySchedule" :key="i"
+                    class="flex bg-white border-l-4 border-primary shadow-sm p-4 rounded-r-md">
+
                     <div class="w-24 border-r border-gray-100 pr-4 mr-4 flex flex-col justify-center">
                         <span class="text-xs font-bold text-gray-800">{{ formatTime(slot.masa) }}</span>
                         <span class="text-[10px] text-gray-400">Duration: 1h</span>
@@ -322,7 +471,8 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div v-if="dailySchedule.length === 0" class="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                <div v-if="dailySchedule.length === 0"
+                    class="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
                     <p class="text-gray-400 text-sm">No classes scheduled for {{ formatDay(selectedDay) }}.</p>
                 </div>
             </div>

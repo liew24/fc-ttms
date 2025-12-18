@@ -55,7 +55,7 @@ onMounted(async () => {
         const response = await axios.get(import.meta.env.VITE_BASE_URL, {
             params: {
                 'entity': 'pelajar_subjek',
-                'no_matrik': user.matric_no
+                'no_matrik': localStorage.getItem('matric_no')
             }
         })
         // console.log(`response data: ${JSON.stringify(response.data, null, 2)}`)
