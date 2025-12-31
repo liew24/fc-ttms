@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { 
-    Search, Filter, Eye, ArrowLeft, Loader2, ArrowUpDown, X, MapPin, ChevronLeft, ChevronRight
+import {
+    Search, Filter, Eye, ArrowLeft, Loader2, ArrowUpDown, X, MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronsUp
 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ const timetableData = ref([]);
 const currentSesi = ref("");
 const currentSem = ref("");
 
+const expandedDays = ref({});
+
 // --- SORTING & FILTERING STATE ---
 const sortBy = ref('time'); 
 const isFilterOpen = ref(false); 
@@ -28,18 +30,17 @@ const selectedDay = ref(null);
 
 // --- MAPPING ---
 const availableDays = [
-    { value: 2, label: "Monday" },
-    { value: 3, label: "Tuesday" },
-    { value: 4, label: "Wednesday" },
-    { value: 5, label: "Thursday" },
-    { value: 6, label: "Friday" }, 
+    { value: 2, label: "Monday", color: "bg-red-50 border-red-100 text-black-700", badge: "bg-red-200 text-black-800" },
+    { value: 3, label: "Tuesday", color: "bg-orange-50 border-red-100 text-black-700", badge: "bg-orange-200 text-black-800" },
+    { value: 4, label: "Wednesday", color: "bg-green-50 border-red-100 text-black-700", badge: "bg-green-200 text-black-800" },
+    { value: 5, label: "Thursday", color: "bg-blue-50 border-red-100 text-black-700", badge: "bg-blue-200 text-black-800" },
+    { value: 6, label: "Friday", color: "bg-purple-50 border-red-100 text-black-700", badge: "bg-purple-200 text-black-800" }, 
 ];
 
 // --- COMPUTED PROPERTIES ---
 const filteredTimetable = computed(() => {
     let data = [...timetableData.value];
 
-    // 1. Filter by Search
     if (searchQuery.value) {
         const query = searchQuery.value.toLowerCase();
         data = data.filter(item => {
@@ -48,42 +49,38 @@ const filteredTimetable = computed(() => {
             return nameMatch || codeMatch;
         });
     }
-
-    // 2. Filter by Day
-    if (selectedDay.value !== null) {
-        data = data.filter(item => item.hari == selectedDay.value);
-    }
-
-    // 3. Sort
-    if (sortBy.value === 'subject') {
-        data.sort((a, b) => a.nama_subjek.localeCompare(b.nama_subjek));
-    } else {
-        data.sort((a, b) => {
-            if (a.hari != b.hari) return a.hari - b.hari;
-            return a.masa - b.masa;
-        });
-    }
-
     return data;
 });
 
 // --- HELPERS ---
+const toggleDay = (dayValue) => {
+    expandedDays.value[dayValue] = !expandedDays.value[dayValue];
+}
+
+const getClassesForDay = (dayValue) => {
+    return filteredTimetable.value.filter(item => item.hari == dayValue);
+}
+
 const formatDay = (day) => {
     const days = { 1: "Sunday", 2: "Monday", 3: "Tuesday", 4: "Wednesday", 5: "Thursday", 6: "Friday", 7: "Saturday" };
     return days[day] || day; 
 }
 
-const formatTime = (apiMasa) => {
-    const startHour = parseInt(apiMasa) + 6; 
+const formatTime = (startMasa, endMasa) => {
+    const end = endMasa || startMasa; 
+
+    const startHour = parseInt(startMasa) + 6; 
+    const endHour = parseInt(end) + 6; 
+
     const pad = (n) => n < 10 ? '0' + n : n;
-    return `${pad(startHour)}00 - ${pad(startHour)}50`;
+    
+    return `${pad(startHour)}00 - ${pad(endHour)}50`;
 }
 
 // --- API ACTIONS ---
 const fetchTimetable = async () => {
     loading.value = true;
     error.value = "";
-    // console.log("Fetching timetable for matric no:", userStore.sessionToken);
     if (userStore.sessionToken === "") {
         error.value = "Session lost. Please Logout and Login again.";
         loading.value = false;
@@ -91,13 +88,8 @@ const fetchTimetable = async () => {
     }
 
     try {
-        // -----------------------------------------
-        // STEP 1: FETCH SUBJECTS (Try Student OR Lecturer)
-        // -----------------------------------------
         let allSubjects = [];
         
-        // ATTEMPT A: Try Student Endpoint
-        // console.log(first)
         try {
             const studentRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
                 params: { entity: 'pelajar_subjek', no_matrik: localStorage.getItem('matric_no')  }
@@ -109,8 +101,6 @@ const fetchTimetable = async () => {
         } catch (e) {
             console.log(e.message);
         }
-        // console.log("allSubjects:", allSubjects);
-        // ATTEMPT B: If empty, Try Lecturer Endpoint
         if (allSubjects.length === 0) {
             try {
                 const lecturerRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
@@ -130,9 +120,6 @@ const fetchTimetable = async () => {
             return;
         }
 
-        // -----------------------------------------
-        // STEP 2: AUTO-DETECT SESSION
-        // -----------------------------------------
         currentSesi.value = allSubjects[0].sesi;     
         currentSem.value = allSubjects[0].semester;  
         
@@ -140,12 +127,8 @@ const fetchTimetable = async () => {
             sub.sesi === currentSesi.value && sub.semester == currentSem.value
         );
 
-        // -----------------------------------------
-        // STEP 3: FETCH SCHEDULE DETAILS
-        // -----------------------------------------
         const detailedRequests = currentSubjects.map(async (subject) => {
             
-            // A. Schedule
             const schedulePromise = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
                 params: {
                     entity: 'jadual_subjek',
@@ -156,7 +139,6 @@ const fetchTimetable = async () => {
                 }
             });
 
-            // B. Lecturer Info
             const lecturerPromise = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
                 params: {
                     entity: 'subjek_pensyarah',
@@ -169,16 +151,13 @@ const fetchTimetable = async () => {
 
             const [scheduleRes, lecturerRes] = await Promise.allSettled([schedulePromise, lecturerPromise]);
 
-            // SAFER PARSING
             let rawSchedules = [];
             if (scheduleRes.status === 'fulfilled' && Array.isArray(scheduleRes.value.data)) {
                 rawSchedules = scheduleRes.value.data;
             }
 
-            // CRITICAL FIX: Remove nulls before mapping
             const schedules = rawSchedules.filter(s => s && s.masa);
             
-            // Find Lecturer Name
             let lecturerName = "Not Assigned";
             if (lecturerRes.status === 'fulfilled' && lecturerRes.value.data && lecturerRes.value.data.length > 0) {
                 const lect = lecturerRes.value.data[0];
@@ -202,11 +181,34 @@ const fetchTimetable = async () => {
 
         const nestedResults = await Promise.all(detailedRequests);
         
-        // 4. Sort Results
-        timetableData.value = nestedResults.flat().sort((a, b) => {
+        const sortedData = nestedResults.flat().sort((a, b) => {
             if (a.hari != b.hari) return a.hari - b.hari;
             return a.masa - b.masa;
         });
+
+        const mergedData = [];
+        if (sortedData.length > 0) {
+            let currentBlock = { ...sortedData[0], endMasa: sortedData[0].masa };
+
+            for (let i = 1; i < sortedData.length; i++) {
+                const nextSlot = sortedData[i];
+
+                const isSameDay = nextSlot.hari == currentBlock.hari;
+                const isSameSubject = nextSlot.kod_subjek == currentBlock.kod_subjek;
+                const isSameSection = nextSlot.seksyen == currentBlock.seksyen;
+                const isConsecutive = parseInt(nextSlot.masa) === parseInt(currentBlock.endMasa) + 1;
+
+                if (isSameDay && isSameSubject && isSameSection && isConsecutive) {
+                    currentBlock.endMasa = nextSlot.masa;
+                } else {
+                    mergedData.push(currentBlock);
+                    currentBlock = { ...nextSlot, endMasa: nextSlot.masa };
+                }
+            }
+            mergedData.push(currentBlock);
+        }
+
+        timetableData.value = mergedData;
 
     } catch (err) {
         console.error(err);
@@ -227,7 +229,6 @@ const goBack = () => {
     selectedItem.value = null;
 }
 
-// UI Actions
 const toggleFilter = () => { isFilterOpen.value = !isFilterOpen.value; }
 const selectDay = (dayValue) => { selectedDay.value = dayValue; isFilterOpen.value = false; }
 const clearFilter = () => { selectedDay.value = null; isFilterOpen.value = false; }
@@ -254,91 +255,71 @@ const clearFilter = () => { selectedDay.value = null; isFilterOpen.value = false
                  </p>
             </div>
 
-            <div class="bg-purple-50/50 p-4 rounded-lg mb-6 flex flex-col md:flex-row gap-4 items-center relative z-10">
-                <div class="relative w-full md:w-auto" @click.stop>
-                    <Button 
-                        variant="outline" 
-                        class="bg-white flex gap-2 w-full md:w-auto transition-colors border"
-                        :class="selectedDay !== null ? 'bg-primary text-white hover:bg-red-900 hover:text-white' : 'text-gray-600'"
-                        @click="toggleFilter"
-                    >
-                        <Filter class="w-4 h-4" />
-                        <span v-if="selectedDay === null">Filter</span>
-                        <span v-else>{{ formatDay(selectedDay) }}</span>
-                        <div v-if="selectedDay !== null" @click.stop="clearFilter" class="ml-2 hover:bg-white/20 rounded-full p-0.5">
-                            <X class="w-3 h-3" />
-                        </div>
-                    </Button>
-
-                    <div v-if="isFilterOpen" class="absolute top-full mt-2 left-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                        <div class="py-1">
-                            <button class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary transition-colors" @click="clearFilter">
-                                Show All Days
-                            </button>
-                            <div class="border-t border-gray-100 my-1"></div>
-                            <button v-for="day in availableDays" :key="day.value" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary transition-colors flex justify-between items-center" @click="selectDay(day.value)">
-                                {{ day.label }}
-                                <span v-if="selectedDay === day.value" class="text-primary text-xs font-bold">✓</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
+            <div class="bg-purple-50/50 p-4 rounded-lg mb-6 flex items-center relative z-10">
                 <div class="relative w-full">
                     <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input v-model="searchQuery" placeholder="Search Subject" class="pl-10 bg-white rounded-full border-none shadow-sm" />
+                    <Input v-model="searchQuery" placeholder="Search Subject Name or Code" class="pl-10 bg-white rounded-full border-none shadow-sm" />
                 </div>
             </div>
 
-            <div class="flex items-center justify-between text-gray-500 text-xs uppercase font-semibold border-b pb-2 mb-2 px-2">
-                <div 
-                    class="flex items-center gap-1 w-1/2 cursor-pointer transition-colors hover:text-primary"
-                    :class="sortBy === 'subject' ? 'text-primary' : ''"
-                    @click="sortBy = 'subject'"
-                >
-                    Subject 
-                    <ArrowUpDown class="w-3 h-3" />
-                </div>
-                <div 
-                    class="flex items-center justify-end gap-1 w-1/2 cursor-pointer transition-colors hover:text-primary"
-                    :class="sortBy === 'time' ? 'text-primary' : ''"
-                    @click="sortBy = 'time'"
-                >
-                    <span>Day & Time</span>
-                    <ArrowUpDown class="w-3 h-3" />
-                </div>
-            </div>
-
-            <div class="space-y-1">
-                <div v-for="(item, index) in filteredTimetable" :key="index" 
-                     class="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 px-2 transition-colors">
+            <div class="space-y-3">
+                <div v-for="day in availableDays" :key="day.value">
                     
-                    <div class="w-1/2 pr-4">
-                        <p class="text-sm font-bold text-gray-800">{{ item.nama_subjek }}</p>
-                        <p class="text-xs text-gray-500 uppercase mt-1">
-                            {{ item.kod_subjek }} - Sec {{ item.seksyen }}
-                        </p>
-                    </div>
+                    <div class="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm transition-all hover:shadow-md">
+                        
+                        <div 
+                            @click="toggleDay(day.value)" 
+                            class="p-4 flex justify-between items-center cursor-pointer select-none transition-colors"
+                            :class="[
+                                day.color, // Apply color ALWAYS
+                                expandedDays[day.value] ? 'border-b' : '' // Add a separator line only when open
+                            ]"
+                        >
+                            <div class="flex items-center gap-3">
+                                <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                                     :class="day.badge"> {{ getClassesForDay(day.value).length }}
+                                </div>
+                                <span class="font-bold uppercase tracking-wide">
+                                    {{ day.label }}
+                                </span>
+                            </div>
+                            
+                            <component :is="expandedDays[day.value] ? ChevronUp : ChevronDown" 
+                                       class="w-5 h-5 opacity-70" />
+                        </div>
 
-                    <div class="w-auto text-xs text-gray-500 flex flex-col items-end mr-4">
-                        <span class="font-semibold text-primary uppercase">{{ formatDay(item.hari) }}</span>
-                        <span class="text-[10px] md:text-xs font-mono">
-                            {{ formatTime(item.masa) }}
-                        </span>
-                    </div>
+                        <div v-if="expandedDays[day.value]" class="bg-white">
+                            
+                            <div v-if="getClassesForDay(day.value).length > 0">
+                                <div v-for="(item, i) in getClassesForDay(day.value)" :key="i" 
+                                     class="flex items-center justify-between p-4 border-b border-gray-50 last:border-0 hover:bg-purple-50/30 transition-colors pl-6 md:pl-12">
+                                    
+                                    <div class="w-2/3 pr-2">
+                                        <p class="text-sm font-bold text-gray-800">{{ item.nama_subjek }}</p>
+                                        <p class="text-xs text-gray-500 uppercase mt-1">
+                                            {{ item.kod_subjek }} <span class="text-gray-300">|</span> Sec {{ item.seksyen }}
+                                        </p>
+                                    </div>
 
-                    <div class="pl-2">
-                        <button @click="viewDetails(item)" class="text-gray-400 hover:text-primary transition-colors">
-                            <Eye class="w-5 h-5" />
-                        </button>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-[10px] md:text-xs font-mono text-primary bg-primary/5 px-2 py-1 rounded whitespace-nowrap">
+                                            {{ formatTime(item.masa, item.endMasa) }}
+                                        </span>
+                                        <button @click.stop="viewDetails(item)" class="text-gray-400 hover:text-primary transition-colors">
+                                            <Eye class="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-else class="p-6 text-center text-gray-400 text-xs italic">
+                                No classes scheduled for {{ day.label }}.
+                            </div>
+                        </div>
                     </div>
-                </div>
-                
-                <div v-if="filteredTimetable.length === 0" class="text-center py-10 text-gray-400 flex flex-col items-center">
-                    <p>No classes found.</p>
-                    <p v-if="selectedDay" class="text-xs mt-1">Try clearing the "{{ formatDay(selectedDay) }}" filter.</p>
                 </div>
             </div>
+            
         </div>
 
         <div v-else>
@@ -363,7 +344,7 @@ const clearFilter = () => { selectedDay.value = null; isFilterOpen.value = false
                         <div>
                             <p class="text-xs text-gray-400 font-medium mb-1">Schedule</p>
                             <p class="text-sm font-medium text-gray-800">
-                                {{ formatDay(selectedItem.hari) }}, {{ formatTime(selectedItem.masa) }}
+                                {{ formatDay(selectedItem.hari) }}, {{ formatTime(selectedItem.masa, selectedItem.endMasa) }}
                             </p>
                         </div>
 
