@@ -29,10 +29,11 @@ const isLoggingIn = ref(false)
 const showPassword = ref(false)
 
 const login = async () => {
-  if (utm_id.value === "" || password.value === "" || role.value === "") {
+  if (utm_id.value === "" || password.value === "") {
     toast.error("Please fill in all fields", { id: "login-error" })
     return
   }
+
   try {
     isLoggingIn.value = true
     const response = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
@@ -45,57 +46,66 @@ const login = async () => {
 
     const data = response.data[0]
 
-    if(role.value === "student/lecturer"){
+    if (data && data.session_id) {
+      const desc = data.description.toLowerCase();
 
-      if (data && data.session_id) {
-        user.login({ matric_no: data.login_name, description: data.description, name: data.full_name, isLoggedIn: true, role: role.value, sessionToken: data.session_id })
-        localStorage.setItem("session_id_utm_ttms",data.session_id)
-        // console.log("saving matric no to localStorage: ", data.login_name)
-        localStorage.setItem('matric_no', data.login_name) 
-        user.setToken();
-        // store session_id in localStorage
-        
-        // localStorage.setItem("user_matric_no", data.login_name) // <--- NEW
-        // localStorage.setItem("user_full_name", data.full_name)  // <--- NEW
-        console.log("user session id: ", data.session_id)
-      } else {
-          toast.error("Invalid credentials. Please try again.", { id: "login-failed" })
-        return
-      }
-      
-    } else if(role.value === "admin"){
-      // Get the admin session_id from backend
-      const adminResponse = await axios.get('http://web.fc.utm.my/ttms/auth-admin.php',{
-        params: {
-          session_id:data.session_id
-        }
-      })
-      const adminData = adminResponse.data[0]
+      // 1. Logic for LECTURER / ADMIN
+      if (desc.includes("pensyarah")) {
+        const adminResponse = await axios.get('http://web.fc.utm.my/ttms/auth-admin.php', {
+          params: { session_id: data.session_id }
+        })
+        const adminData = adminResponse.data[0]
+
         if (adminData && adminData.session_id) {
-          user.login({ matric_no: "admin", description: "admin", name: "Admin", isLoggedIn: true, role: role.value, sessionToken: adminData.session_id })
-          localStorage.setItem("session_id_utm_ttms",adminData.session_id)
-          localStorage.setItem("is_admin","true")
-          user.setToken();
-          // store session_id in localStorage
-          console.log("admin session id: ", adminData.session_id)
+          user.login({ 
+            matric_no: data.login_name, // Using their staff ID
+            description: data.description, 
+            name: data.full_name, 
+            isLoggedIn: true, 
+            role: "admin", 
+            sessionToken: adminData.session_id 
+          })
+          localStorage.setItem("session_id_utm_ttms", adminData.session_id)
+          localStorage.setItem("is_admin", "true")
+          localStorage.setItem('matric_no', data.login_name)
         } else {
-            toast.error("Invalid credentials. Please try again.", { id: "login-failed" })
+          toast.error("Admin authentication failed", { id: "admin-failed" })
           return
         }
-    } else {
-      toast.error("Please select a valid role", { id: "login-error" })
-      return
-    }
 
-    toast.success("Login successful!", { id: "login-success",timeout: 2000 })
-    router.push("/home")
+      // 2. Logic for STUDENT
+      } else if (desc.includes("pelajar")) {
+        user.login({ 
+          matric_no: data.login_name, 
+          description: data.description, 
+          name: data.full_name, 
+          isLoggedIn: true, 
+          role: "student", 
+          sessionToken: data.session_id 
+        })
+        localStorage.setItem("session_id_utm_ttms", data.session_id)
+        localStorage.setItem('matric_no', data.login_name)
+        localStorage.removeItem("is_admin") // Ensure admin flag is gone
+
+      } else {
+        toast.error("Role not recognized. Please contact admin.", { id: "role-error" })
+        return
+      }
+
+      // Finalize Login
+      user.setToken()
+      toast.success("Login successful!", { id: "login-success", timeout: 2000 })
+      router.push("/home")
+
+    } else {
+      toast.error("Invalid credentials. Please try again.", { id: "login-failed" })
+    }
   } catch (error) {
     toast.error("Login failed. Please try again.", { id: "login-failed" })
     console.error("Login error:", error)
   } finally {
     isLoggingIn.value = false
   }
-
 }
 </script>
 
@@ -132,20 +142,7 @@ const login = async () => {
           </button>
         </div>
 
-        <div class="space-y-2">
-          <Label>Role</Label>
-          <Select v-model="role" class="w-full">
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="Select a Roles" />
-            </SelectTrigger>
-            <SelectContent class="w-full">
-              <SelectGroup class="flex flex-col gap-2 p-2">
-                <SelectItem value="admin" class="w-full hover:bg-gray-100 p-2">Lecturer/Admin</SelectItem>
-                <SelectItem value="student/lecturer" class="w-full hover:bg-gray-100 p-2">Student</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
+        
 
         <!-- <div class="w-full flex justify-end">
           <button class="text-primary underline text-xs cursor-pointer">Forgot Passsword ?</button>
