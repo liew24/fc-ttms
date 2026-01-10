@@ -1,10 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { Loader2 } from 'lucide-vue-next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import axios from 'axios'; // Import Axios directly for detailed fetching
 
 import { Bar } from 'vue-chartjs';
 import {
@@ -22,6 +22,7 @@ import { useUserStore } from '@/stores/user';
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
 const isLoading = ref(true);
+const isFetchingDetails = ref(false);
 const subjects = ref([]);
 const searchTerm = ref('');
 const selectedSubject = ref(null);
@@ -34,38 +35,26 @@ const currentPage = ref(1);
 const itemsPerPageOptions = [10, 25, 50, 100];
 const itemsPerPage = ref(itemsPerPageOptions[0]);
 
-// --- CHANGE 1: Enhanced Chart Options for Bigger Fonts ---
 const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
         y: {
             beginAtZero: true,
-            title: { 
-                display: true, 
-                text: 'Number of Students',
-                font: { size: 14, weight: 'bold' } // Bigger axis title
-            },
-            ticks: {
-                font: { size: 12 } // Bigger Y-axis numbers
-            }
+            title: { display: true, text: 'Number of Students', font: { size: 14, weight: 'bold' } },
+            ticks: { font: { size: 12 } }
         },
         x: {
-            ticks: {
-                font: { size: 12, weight: 'bold' } // Bigger X-axis labels (Section names)
-            }
+            ticks: { font: { size: 12, weight: 'bold' } }
         }
     },
     plugins: {
-        legend: {
-            labels: {
-                font: { size: 14 } // Bigger legend text
-            }
-        },
-        title: {
-            display: true,
-            text: 'Percentage of Students per Section',
-            font: { size: 18 } // Bigger chart title
+        legend: { labels: { font: { size: 14 } } },
+        title: { 
+            display: true, 
+            // --- CHANGE 1: Title updated ---
+            text: 'Number of Students per Section', 
+            font: { size: 18 } 
         }
     }
 };
@@ -107,7 +96,6 @@ const paginatedSubjects = computed(() => {
     const start = (currentPage.value - 1) * itemsPerPage.value;
     const end = start + itemsPerPage.value;
     
-    // Pagination safety check
     if (currentPage.value > totalPages.value && totalPages.value > 0) {
         currentPage.value = totalPages.value;
     } else if (totalPages.value === 0) {
@@ -116,13 +104,9 @@ const paginatedSubjects = computed(() => {
     return filteredSubjects.value.slice(start, end);
 });
 
-// --- CHANGE 2: Helper function to sort sections numerically ---
-// This handles mixed types like "1", "2", "10" correctly
 const getSortedSections = (sectionList) => {
     if (!sectionList) return [];
     return [...sectionList].sort((a, b) => {
-        // Remove non-numeric chars to safely compare (e.g. if data is "S1", "S2")
-        // or just parse directly if they are pure numbers
         const numA = parseInt(a.seksyen.toString().replace(/\D/g, '')) || 0;
         const numB = parseInt(b.seksyen.toString().replace(/\D/g, '')) || 0;
         return numA - numB;
@@ -138,9 +122,52 @@ const changeItemsPerPage = (event) => {
     currentPage.value = 1;
 };
 
-const viewDetails = (subject, index) => {
-    selectedSubject.value = subject;
+const viewDetails = async (subject, index) => {
+    // 1. Initial render with basic data
+    selectedSubject.value = JSON.parse(JSON.stringify(subject));
+    studentChartData.value = null;
     generateChartData(selectedSubject.value);
+    
+    // 2. Fetch Lecturer Data using direct Axios call to ensure parameters are passed correctly
+    isFetchingDetails.value = true;
+    
+    try {
+        const sectionsWithLecturers = await Promise.all(
+            selectedSubject.value.seksyen_list.map(async (sec) => {
+                try {
+                    // --- CHANGE 2: Using Axios directly to fix "TBA" issue ---
+                    const response = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
+                        params: { 
+                            entity: 'subjek_pensyarah', 
+                            sesi: session.value, 
+                            semester: semester.value, 
+                            kod_subjek: subject.kod_subjek, 
+                            seksyen: sec.seksyen 
+                        }
+                    });
+
+                    const res = response.data;
+                    
+                    const lecturerName = (Array.isArray(res) && res.length > 0) 
+                        ? (res[0].nama || res[0].nama_pensyarah) 
+                        : "Staff Not Assigned";
+                        
+                    return { ...sec, lecturer_name: lecturerName };
+                } catch (err) {
+                    console.error("Error fetching lecturer for sec " + sec.seksyen, err);
+                    return { ...sec, lecturer_name: "Unknown" };
+                }
+            })
+        );
+        
+        // 3. Update the UI with fetched names
+        selectedSubject.value.seksyen_list = sectionsWithLecturers;
+        
+    } catch (e) {
+        console.error("Global error fetching details", e);
+    } finally {
+        isFetchingDetails.value = false;
+    }
 };
 
 const closeDetails = () => {
@@ -149,9 +176,7 @@ const closeDetails = () => {
 };
 
 const generateChartData = (subjectData) => {
-    // Sort the data before generating chart
     const sortedList = getSortedSections(subjectData.seksyen_list);
-    
     const labels = sortedList.map(s => `Section ${s.seksyen}`);
     const data = sortedList.map(s => s.bil_pelajar);
     
@@ -168,8 +193,7 @@ const generateChartData = (subjectData) => {
             label: 'Number of Students',
             backgroundColor: backgroundColors.slice(0, data.length),
             data: data,
-            // --- CHANGE 3: Increase Bar Thickness ---
-            barPercentage: 0.8, // Make bars occupy 80% of the category width (thicker)
+            barPercentage: 0.8, 
             categoryPercentage: 0.9 
         }]
     };
@@ -234,7 +258,7 @@ const generateChartData = (subjectData) => {
                             </TableBody>
                         </Table>
                     </div>
-                    <div v-if="totalPages > 1" class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 pt-4 mt-4">
+                     <div v-if="totalPages > 1" class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 pt-4 mt-4">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-medium">Items per page:</span>
                             <select class="border rounded-md px-2 py-1 text-sm focus:ring-primary focus:border-primary" :value="itemsPerPage" @change="changeItemsPerPage">
@@ -282,7 +306,12 @@ const generateChartData = (subjectData) => {
                              class="bg-card p-5 border border-gray-200 rounded-lg shadow-sm">
                             <p class="font-bold text-lg text-gray-800">Section {{ sessionData.seksyen }}</p>
                             <p class="text-3xl font-extrabold text-blue-600 mt-1">{{ sessionData?.bil_pelajar }}</p>
-                            <p class="text-sm text-gray-500">Total Students Enrolled</p>
+                            
+                            <p class="text-xs text-gray-500 font-medium mt-1 uppercase truncate" :title="sessionData.lecturer_name">
+                                <span v-if="isFetchingDetails && !sessionData.lecturer_name">Loading info...</span>
+                                <span v-else>{{ sessionData.lecturer_name || 'TBA' }}</span>
+                            </p>
+                            
                         </div>
                     </div>
                 </CardContent>
