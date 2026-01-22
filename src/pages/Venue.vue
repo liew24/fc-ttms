@@ -188,9 +188,22 @@ const initPage = async () => {
     }
     
     if (!currentSesi.value || !currentSem.value) {
-        const year = new Date().getFullYear();
-        currentSesi.value = `${year}/${year + 1}`;
-        currentSem.value = 1;
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = date.getMonth(); // 0 = Jan, 11 = Dec
+
+        // UTM sessions start in September. 
+        // If we are in Jan (0) to Aug (7), we belong to the previous year's session.
+        let startYear = year;
+        if (month < 8) { 
+            startYear = year - 1; // e.g., In Jan 2026, use 2025
+        }
+
+        currentSesi.value = `${startYear}/${startYear + 1}`;
+        
+        // Auto-detect semester: Feb (1) to Aug (7) is usually Sem 2
+        // Sept (8) to Jan (0) is usually Sem 1
+        currentSem.value = (month >= 1 && month < 8) ? 2 : 1; 
     }
 
     await fetchVenues();
