@@ -46,7 +46,7 @@ const sessionId = localStorage.getItem("session_id_utm_ttms");
 // Load chart data
 onMounted(async () => {
   try {
-    const students = await getStudents("pensyarah", sessionId, "2024/2025", 1, 0);
+    const students = await getStudents("pensyarah", sessionId, "2025/2026", 1, 0);
 
     // Count by number of subjects
     const countBySubjects = {};

@@ -1,0 +1,57 @@
+{
+  "pensyarah_subjek": [
+    {
+      "no_pekerja": "12085",
+      "kod_subjek": "SECJ2154",
+      "nama_subjek": "Object Oriented Programming",
+      "seksyen": "1",
+      "sesi": "2025/2026",
+      "semester": "1"
+    },
+    {
+      "no_pekerja": "12085",
+      "kod_subjek": "SECJ2154",
+      "nama_subjek": "Object Oriented Programming",
+      "seksyen": "2",
+      "sesi": "2025/2026",
+      "semester": "1"
+    },
+    {
+      "no_pekerja": "12085",
+      "kod_subjek": "SECJ3104",
+      "nama_subjek": "Database Systems",
+      "seksyen": "3",
+      "sesi": "2025/2026",
+      "semester": "1"
+    },
+    {
+      "no_pekerja": "12085",
+      "kod_subjek": "SECV1123",
+      "nama_subjek": "Academic Writing",
+      "seksyen": "1",
+      "sesi": "2025/2026",
+      "semester": "1"
+    }
+  ],
+  "subjek_seksyen": [
+    {
+      "kod_subjek": "SECJ2154",
+      "seksyen_list": [
+        { "seksyen": "1", "bil_pelajar": "28" },
+        { "seksyen": "2", "bil_pelajar": "31" }
+      ]
+    },
+    {
+      "kod_subjek": "SECJ3104",
+      "seksyen_list": [
+        { "seksyen": "3", "bil_pelajar": "24" }
+      ]
+    },
+    {
+      "kod_subjek": "SECV1123",
+      "seksyen_list": [
+        { "seksyen": "1", "bil_pelajar": "18" }
+      ]
+    }
+  ]
+}

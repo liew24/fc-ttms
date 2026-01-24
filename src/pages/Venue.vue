@@ -246,7 +246,7 @@ const openVenueDetail = async (venue) => {
             limit: 2000,
         },
         });
-
+        console.log("current sesi :", currentSesi.value);
         venueSchedule.value = response.data || [];
         saveVenueScheduleCache();
         currentView.value = 2;

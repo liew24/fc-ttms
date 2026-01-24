@@ -48,7 +48,7 @@ const adminId = localStorage.getItem("admin_id_utm_ttms");
 // Load chart data
 onMounted(async () => {
   try {
-    const students = await fetchStudents(adminId, "2024/2025", 1);
+    const students = await fetchStudents(adminId, "2025/2026", 1);
 
     const countBySubjects = {};
 
@@ -65,7 +65,7 @@ onMounted(async () => {
       labels,
       datasets: [
         {
-          label: "Amount of students",
+          label: "Total students",
           data: values,
           backgroundColor:[
               "rgba(75, 192, 192, 0.7)",

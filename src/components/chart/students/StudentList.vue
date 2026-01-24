@@ -86,8 +86,8 @@ const prevPage = () => {
 
 onMounted(async () => {
   try {
-    students.value = await fetchStudents(adminId, "2024/2025", 1);
-
+    students.value = await fetchStudents(adminId, "2025/2026", 1);
+    console.log("students from StudentList.vue: ", students.value);
   } catch (error) {
     console.log("Error fetching students list: ", error);
     toast.error("Failed to load students list.", {

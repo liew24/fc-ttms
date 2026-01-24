@@ -38,13 +38,16 @@ const timeSlots = [
     { label: "4 PM", start: 16 }, { label: "5 PM", start: 17 }
 ];
 
-// --- CACHE LOGIC ---
 const cacheKeyBase = computed(() => {
     const id = localStorage.getItem("matric_no") || "unknown";
+    // Fixed: Added backticks and quotes for the string part
     return `ttms:timetable:${id}`;
 });
+
+// Fixed: Wrapped in backticks and used .value
 const cacheKeyData = computed(() => `${cacheKeyBase.value}:data`);
 const cacheKeyMeta = computed(() => `${cacheKeyBase.value}:meta`);
+
 const CACHE_MAX_AGE_MS = 30 * 60 * 1000;
 
 const restoreFromCache = () => {
@@ -81,24 +84,28 @@ const filteredTimetable = computed(() => {
 // --- HELPERS ---
 const toggleDay = (dayValue) => expandedDays.value[dayValue] = !expandedDays.value[dayValue];
 const getClassesForDay = (dayValue) => filteredTimetable.value.filter(item => item.hari == dayValue);
+
 const formatDay = (day) => {
     const days = { 1: "Sunday", 2: "Monday", 3: "Tuesday", 4: "Wednesday", 5: "Thursday", 6: "Friday", 7: "Saturday" };
     return days[day] || day;
 };
+
 const formatTime = (startMasa, endMasa) => {
     const end = endMasa || startMasa;
     const startHour = parseInt(startMasa) + 6;
     const endHour = parseInt(end) + 6;
     const pad = (n) => n < 10 ? '0' + n : n;
+    // Fixed: Added backticks and missing $ for the second pad call
     return `${pad(startHour)}00 - ${pad(endHour)}50`;
 };
 
 const getGridStyle = (item) => {
-    const startCol = parseInt(item.masa) - 1;
+    const startCol = parseInt(item.masa); 
     const duration = item.endMasa ? (parseInt(item.endMasa) - parseInt(item.masa) + 1) : 1;
     
     return {
         gridColumnStart: startCol,
+        // Fixed: Added backticks and $ sign
         gridColumnEnd: `span ${duration}`
     };
 };
@@ -229,41 +236,48 @@ onMounted(() => {
 
             <div class="mb-8 overflow-x-auto border border-gray-100 rounded-xl shadow-sm bg-white pb-2">
                 <div class="min-w-[1200px] p-4"> 
-                    <div class="grid grid-cols-[80px_repeat(10,1fr)] gap-2 mb-2">
-                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider self-end pb-1">Day</div>
-                        <div v-for="slot in timeSlots" :key="slot.start" 
-                            class="text-xs font-bold text-gray-400 text-center pb-1 border-b border-gray-100">
-                            {{ slot.label }}
+                    <div class="grid grid-cols-[80px_1fr] gap-2 mb-2">
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider self-end pb-1 text-center">Day</div>
+                        <div class="grid grid-cols-10 border-b border-gray-200">
+                            <div v-for="(slot, index) in timeSlots" :key="slot.start" 
+                                class="text-xs font-bold text-gray-400 pb-1 relative">
+                                <span class="absolute bottom-1 left-0 transform -translate-x-1/2" :class="{'translate-x-0': index === 0}">
+                                    {{ slot.label }}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
                     <div class="space-y-3">
-                        <div v-for="day in availableDays" :key="day.value" class="grid grid-cols-[80px_repeat(10,1fr)] gap-2 h-32 items-center">
+                        <div v-for="day in availableDays" :key="day.value" class="grid grid-cols-[80px_1fr] gap-2 h-32 items-center">
                             
-                            <div class="flex flex-col justify-center h-full">
+                            <div class="flex flex-col justify-center h-full text-center">
                                 <span class="font-bold text-gray-700 uppercase text-sm">{{ day.label.substring(0, 3) }}</span>
                                 <span class="text-[10px] text-gray-400 font-medium">{{ getClassesForDay(day.value).length }} Classes</span>
                             </div>
 
-                            <div class="col-span-10 h-full relative bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
+                            <div class="h-full relative bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
                                 <div class="absolute inset-0 grid grid-cols-10 pointer-events-none">
                                     <div v-for="n in 10" :key="n" class="border-r border-gray-100 last:border-0 h-full"></div>
                                 </div>
 
-                                <div class="absolute inset-0 grid grid-cols-10 gap-1 p-1">
+                                <div class="absolute inset-0 grid grid-cols-10 p-1">
                                     <div v-for="item in getClassesForDay(day.value)" 
                                         :key="item.kod_subjek"
-                                        class="rounded-md p-2 flex flex-col justify-between shadow-sm hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer border-l-4 overflow-hidden"
+                                        class="rounded-md p-2 flex flex-col justify-between shadow-sm hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer border-l-4 overflow-hidden relative mx-0.5"
                                         :class="[day.light, day.border]"
                                         :style="getGridStyle(item)"
                                         @click="selectedItem = item"
                                     >
                                         <div>
-                                            <p class="font-bold text-xs leading-tight text-gray-900 mb-1 line-clamp-3">
+                                            <p class="font-bold text-xs leading-tight text-gray-900 mb-1 line-clamp-2">
                                                 {{ item.nama_subjek }}
                                             </p>
                                             <p class="text-[11px] text-gray-700 font-mono font-medium">
                                                 {{ item.kod_subjek }}
+                                            </p>
+                                            <p class="text-[10px] text-gray-500 truncate mt-0.5">
+                                                {{ item.lecturer_name }}
                                             </p>
                                         </div>
                                         

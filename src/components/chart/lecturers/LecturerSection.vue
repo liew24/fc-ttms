@@ -48,39 +48,71 @@ const sessionId = localStorage.getItem("session_id_utm_ttms");
 // Load chart data
 onMounted(async () => {
   try {
-    const students = await getStudents("pensyarah", sessionId, "2024/2025", 1, 0);
+    // 1. Rename variable for clarity (it fetches lecturers, not students)
+    const lecturers = await getStudents("pensyarah", sessionId, "2025/2026", 1, 0);
 
-    // Count by number of subjects
     const countBySection = {};
 
-    students.forEach(s => {
-      const key = s.bil_seksyen;
-      if (!countBySection[key]) countBySection[key] = 0;
-      countBySection[key]++;
+    lecturers.forEach(lecturer => {
+      // default to 0 if null/undefined to avoid crashes
+      const sectionCount = lecturer.bil_seksyen || 0; 
+      
+      if (!countBySection[sectionCount]) countBySection[sectionCount] = 0;
+      countBySection[sectionCount]++;
     });
 
-    const labels = Object.keys(countBySection);
-    const values = Object.values(countBySection);
+    // 2. CRITICAL: Sort the keys numerically (1, 2, 3...) 
+    // Otherwise "10" might appear before "2"
+    const sortedSectionCounts = Object.keys(countBySection)
+        .sort((a, b) => Number(a) - Number(b));
+
+    // 3. Create descriptive labels
+    const labels = sortedSectionCounts.map(count => `${count} Sections`);
+    const values = sortedSectionCounts.map(count => countBySection[count]);
 
     chartData.value = {
       labels,
       datasets: [
         {
-          label: "Amount of lecturer taken section",
+          label: "Number of Lecturers",
           data: values,
-          backgroundColor: [
-            "rgba(255, 99, 132, 0.7)",
-            "rgba(54, 162, 235, 0.7)",
-            "rgba(255, 206, 86, 0.7)",
-            "rgba(75, 192, 192, 0.7)",
-            "rgba(153, 102, 255, 0.7)",
-            "rgba(255, 159, 64, 0.7)"
-          ],
-          borderColor: "rgba(54, 162, 235, 1)",
-          borderWidth: 1
+          // 4. Use a single color (or gradient) for distribution charts
+          // Random colors (rainbow) can be distracting for this data type
+          backgroundColor: "rgba(75, 192, 192, 0.6)",
+          borderColor: "rgba(75, 192, 192, 1)",
+          borderWidth: 1,
+          barPercentage: 0.6, // Makes bars thinner and more elegant
         }
       ]
     };
+
+    // 5. Add Axis Titles for Context
+    chartOptions.value = {
+      responsive: true,
+      plugins: {
+        legend: { display: false }, // Hide legend (title explains enough)
+        title: {
+          display: true,
+          text: 'Lecturer Workload Distribution (By Sections)'
+        },
+        tooltip: {
+            callbacks: {
+                label: (context) => `${context.raw} Lecturers have this workload`
+            }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Number of Lecturers' },
+          ticks: { stepSize: 1 } // Avoids decimals like "1.5 lecturers"
+        },
+        x: {
+          title: { display: true, text: 'Workload Size' }
+        }
+      }
+    };
+
   } catch (error) {
     console.error("Error loading chart:", error);
   } finally {

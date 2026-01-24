@@ -35,6 +35,12 @@ const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   scales: {
+    x: {
+      display: false, // This hides the entire X-axis (labels, line, and grid)
+      grid: {
+        display: false // Optional: explicitly ensures the vertical grid lines are gone
+      }
+    },
     y: { beginAtZero: true, ticks: { stepSize: 1 } }
   },
   plugins: {
@@ -48,39 +54,56 @@ const sessionId = localStorage.getItem("session_id_utm_ttms");
 // Load chart data
 onMounted(async () => {
   try {
-    const students = await getStudents("pensyarah", sessionId, "2024/2025", 1, 0);
+    const lecturers = await getStudents("pensyarah", sessionId, "2025/2026", 1, 0);
 
-    // Count by number of subjects
-    const countBySubjects = {};
+    // 1. SORT DATA: Ascending order (Smallest to Largest)
+    // If you want Descending (Largest first), swap to: b.bil_pelajar - a.bil_pelajar
+    lecturers.sort((a, b) => a.bil_pelajar - b.bil_pelajar);
 
-    students.forEach(s => {
-      const key = s.bil_subjek;
-      if (!countBySubjects[key]) countBySubjects[key] = 0;
-      countBySubjects[key]++;
-    });
-
-    const labels = Object.keys(countBySubjects);
-    const values = Object.values(countBySubjects);
+    // 2. Prepare Labels and Data (now they follow the sorted order)
+    const labels = lecturers.map(s => s.nama || 'Unknown'); 
+    const values = lecturers.map(s => s.bil_pelajar);
 
     chartData.value = {
       labels,
       datasets: [
         {
-          label: "Amount of students taken by lecturers",
+          label: "Total Students",
           data: values,
           backgroundColor: [
-            "rgba(255, 99, 132, 0.7)",
-            "rgba(54, 162, 235, 0.7)",
-            "rgba(255, 206, 86, 0.7)",
-            "rgba(75, 192, 192, 0.7)",
-            "rgba(153, 102, 255, 0.7)",
-            "rgba(255, 159, 64, 0.7)"
+            "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", 
+            "#9966FF", "#FF9F40", "#2ecc71", "#e74c3c"
           ],
-          borderColor: "rgba(54, 162, 235, 1)",
-          borderWidth: 1
+          hoverOffset: 10
         }
       ]
     };
+
+    chartOptions.value = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'right',
+          labels: {
+            padding: 20,
+            usePointStyle: true,
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const value = context.raw;
+              const percentage = ((value / total) * 100).toFixed(1);
+              return `${context.label}: ${value} students (${percentage}%)`;
+            }
+          }
+        }
+      }
+    };
+
   } catch (error) {
     console.error("Error loading chart:", error);
   } finally {

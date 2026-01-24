@@ -62,11 +62,11 @@ const login = async () => {
             description: data.description, 
             name: data.full_name, 
             isLoggedIn: true, 
-            role: "admin", // lecturer , admin
+            role: "lecturer", // lecturer , admin
             sessionToken: adminData.session_id 
           })
           localStorage.setItem("session_id_utm_ttms", adminData.session_id)
-          localStorage.setItem("role", "admin") // lecturer , admin // Keep flag for other uses
+          localStorage.setItem("role", "lecturer") // lecturer , admin // Keep flag for other uses
           localStorage.setItem('matric_no', data.login_name)
         } else {
           // Fallback to lecturer role if admin check fails (but they are still staff)

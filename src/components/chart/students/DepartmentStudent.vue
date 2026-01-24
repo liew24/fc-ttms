@@ -53,63 +53,46 @@ const adminId = localStorage.getItem("admin_id_utm_ttms");
 
 onMounted(async () => {
   try {
-    const students = await fetchStudents(adminId, "2024/2025", 1);
+    const students = await fetchStudents(adminId, "2025/2026", 1);
   
-    const countByCourses = {};
-  // SECJH/SECJ/SCSJ/SECJ = Software Engineering
-  // SECRH/SECR = Network Security
-  // SEVH = Graphic and Multimedia
-  // SECP = Data Engineering
-  // SECBH = Bioinformatics
+    const counts = {};
+
+    // Grouping logic
     students.forEach(s => {
       const key = s.kod_kursus;
-  
-      if(key==='SECJ' || key === 'SCSJ' || key === 'SECJH' || key === 'SCSEH'){
-          countByCourses['SECJH'] = (countByCourses['SECJH'] || 0) + 1;
-      } else if (key==='SECR' || key==='SECRH'){ // Network security 
-          countByCourses['SECRH'] = (countByCourses['SECRH'] || 0) + 1;
-      } else if (key==='SECVH'){ // graphic 
-          countByCourses['SECVH'] = (countByCourses['SECVH'] || 0) + 1;
-      } else if (key==='SECPH'){ // data engineering 
-          countByCourses['SECPH'] = (countByCourses['SECPH'] || 0) + 1;
-      } else if (key==='SECBH'){ // bioinformatics
-          countByCourses['SECBH'] = (countByCourses['SECBH'] || 0) + 1;
-      } else {
-          countByCourses['Others'] = (countByCourses['Others'] || 0) + 1;
-      }
-      // software engineering: 310
-      // network security: 262
-      // 
-      // if (!countByCourses[key]) countByCourses[key] = 0;
-      // countByCourses[key]++;
+      let category = 'Others';
+
+      if(['SECJ', 'SCSJ', 'SECJH', 'SCSEH'].includes(key)) category = 'Software Engineering';
+      else if (['SECR', 'SECRH'].includes(key)) category = 'Network Security';
+      else if (key === 'SECVH') category = 'Graphic & Multimedia';
+      else if (key === 'SECPH') category = 'Data Engineering';
+      else if (key === 'SECBH') category = 'Bioinformatics';
+
+      counts[category] = (counts[category] || 0) + 1;
     });
-  
-    const labels = Object.keys(countByCourses);
-    const values = Object.values(countByCourses);
-    
-    //     const datasets = labels.map((label, index) => ({
-    //   label: label,
-    //   data: [values[index]], // single bar per dataset
-    //   backgroundColor: [
-    //     "rgba(75, 192, 192, 0.7)",
-    //     "rgba(255, 99, 132, 0.7)",
-    //     "rgba(255, 205, 86, 0.7)",
-    //     "rgba(54, 162, 235, 0.7)",
-    //     "rgba(153, 102, 255, 0.7)",
-    //     "rgba(201, 203, 207, 0.7)",
-    //   ][index % 6] // loop colors
-    // }));
+
+    // 1. Convert object to array: [['Software', 310], ['Network', 262], ...]
+    // 2. Sort by the value (index 1) in descending order
+    const sortedData = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1]);
+
+    // 3. Extract sorted labels and values
+    const labels = sortedData.map(entry => entry[0]);
+    const values = sortedData.map(entry => entry[1]);
+
     chartData.value = {
       labels,
       datasets: [
         {
-          label: "Amount of students",
+          label: "Total students",
           data: values,
-          backgroundColor:[
-              "rgba(75, 192, 192, 0.7)",
-              "rgba(255, 99, 132, 0.7)",
-              "rgba(255, 205, 86, 0.7)",
-              "rgba(54, 162, 235, 0.7)",
+          backgroundColor: [
+            "rgba(75, 192, 192, 0.7)", // Largest
+            "rgba(255, 99, 132, 0.7)",
+            "rgba(255, 205, 86, 0.7)",
+            "rgba(54, 162, 235, 0.7)",
+            "rgba(153, 102, 255, 0.7)",
+            "rgba(201, 203, 207, 0.7)",
           ]
         }
       ]
@@ -117,7 +100,7 @@ onMounted(async () => {
   } catch (error) {
       console.error("Error loading chart:", error);
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
 });
 </script>
